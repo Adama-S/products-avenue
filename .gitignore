@@ -1,0 +1,13 @@
+/vendor/
+/var/
+.env
+
+# Personal working documents: never committed.
+CLAUDE.md
+USER_STORIES.md
+FONCTIONNALITES.md
+maquettes/
+
+# Editors and OS.
+/.idea/
+.DS_Store

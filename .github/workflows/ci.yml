@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same containers as on a developer machine: no second configuration to maintain.
+      - name: Start the stack
+        run: |
+          cp .env.example .env
+          docker compose up -d --build --wait
+
+      - name: Code style, static analysis and tests
+        run: docker compose exec -T app composer check
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v

@@ -1,0 +1,50 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    env_file: .env
+    ports:
+      - "${APP_PORT:-8050}:80"
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # Apache only starts once `composer install` is done (see docker/php/entrypoint.sh).
+      test: ["CMD", "curl", "-fsS", "http://localhost/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 120s
+
+  db:
+    image: mysql:8.0
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${DB_PORT:-3350}:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+      # Init scripts run once, on the first start with an empty volume, in this order.
+      - ./docker/mysql/init/01-databases.sh:/docker-entrypoint-initdb.d/01-databases.sh:ro
+      - ./database/blissim.sql:/docker-entrypoint-initdb.d/02-blissim.sql:ro
+      - ./docker/mysql/init/03-catalog.sh:/docker-entrypoint-initdb.d/03-catalog.sh:ro
+      - ./database:/schema:ro
+    healthcheck:
+      # 127.0.0.1 forces TCP: it only answers once the init scripts are done.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+volumes:
+  db-data:
