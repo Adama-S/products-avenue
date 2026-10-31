@@ -45,7 +45,8 @@ final readonly class View
      *
      * @param array<string, mixed> $data variables of the template, plus the layout's:
      *                                   title, description, canonicalPath (?string),
-     *                                   noindex (bool), currentNav (?string)
+     *                                   noindex (bool), currentNav (?string),
+     *                                   openGraph (property => content), structuredData (JSON-LD blocks)
      */
     public function page(string $template, array $data): string
     {
@@ -54,7 +55,23 @@ final readonly class View
             'canonicalPath' => null,
             'noindex' => false,
             'currentNav' => null,
+            'openGraph' => [],
+            'structuredData' => [],
         ]);
+    }
+
+    /**
+     * Structured data (JSON-LD) for a <script type="application/ld+json"> block (US-24).
+     *
+     * Built with json_encode, never by hand. JSON_HEX_TAG writes < and > as < and >:
+     * a product title from the API containing "</script>" cannot close the block and inject
+     * HTML. The block is data, not code: the Content-Security-Policy does not block it.
+     *
+     * @param array<string, mixed> $data
+     */
+    public static function jsonLd(array $data): string
+    {
+        return json_encode($data, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 
     /**

@@ -51,6 +51,23 @@ final class MoneyTest extends TestCase
         self::assertSame($expected, Money::fromCents($cents, $currency)->format());
     }
 
+    /**
+     * @return iterable<string, array{int, string}>
+     */
+    public static function decimalAmounts(): iterable
+    {
+        yield 'cents' => [10995, '109.95'];
+        yield 'round amount' => [69500, '695.00'];
+        yield 'less than one unit' => [5, '0.05'];
+    }
+
+    #[DataProvider('decimalAmounts')]
+    public function test_it_gives_the_amount_as_a_decimal_string_for_structured_data(int $cents, string $expected): void
+    {
+        // schema.org and Open Graph expect « 109.95 »: a dot, no thousands separator, no symbol.
+        self::assertSame($expected, Money::fromCents($cents, 'EUR')->decimal());
+    }
+
     public function test_a_negative_amount_is_refused(): void
     {
         $this->expectException(\InvalidArgumentException::class);

@@ -12,6 +12,8 @@ declare(strict_types=1);
  * @var string|null $canonicalPath
  * @var bool $noindex
  * @var string|null $currentNav
+ * @var array<string, string> $openGraph Open Graph property => content
+ * @var list<array<string, mixed>> $structuredData JSON-LD blocks, encoded by View::jsonLd()
  */
 ?>
 <!doctype html>
@@ -28,6 +30,12 @@ declare(strict_types=1);
 <?php } ?>
 <?php if ($canonicalPath !== null) { ?>
     <link rel="canonical" href="<?= e($this->absoluteUrl($canonicalPath)) ?>">
+<?php } ?>
+<?php foreach ($openGraph as $property => $value) { ?>
+    <meta property="<?= e($property) ?>" content="<?= e($value) ?>">
+<?php } ?>
+<?php foreach ($structuredData as $block) { ?>
+    <script type="application/ld+json"><?= App\View\View::jsonLd($block) ?></script>
 <?php } ?>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/assets/style.css">

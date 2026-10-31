@@ -73,6 +73,66 @@ final class ProductPageTest extends FunctionalTestCase
         self::assertStringEndsWith('…', $description);
     }
 
+    public function test_structured_data_describes_the_product_and_its_breadcrumb(): void
+    {
+        [$product, $breadcrumb] = $this->structuredData($this->get('/products/1')->body);
+
+        self::assertSame([
+            '@context' => 'https://schema.org',
+            '@type' => 'Product',
+            'name' => 'Fjallraven - Foldsack No. 1 Backpack',
+            'description' => self::LONG_DESCRIPTION,
+            'image' => 'https://fakestoreapi.com/img/1.png',
+            'url' => 'https://products-avenue.test/products/1',
+            'offers' => [
+                '@type' => 'Offer',
+                'price' => '109.95',
+                'priceCurrency' => 'EUR',
+                'url' => 'https://products-avenue.test/products/1',
+            ],
+        ], $product);
+        self::assertSame([
+            '@context' => 'https://schema.org',
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => [
+                ['@type' => 'ListItem', 'position' => 1, 'name' => 'Catalogue', 'item' => 'https://products-avenue.test/'],
+                ['@type' => 'ListItem', 'position' => 2, 'name' => 'Fjallraven - Foldsack No. 1 Backpack', 'item' => 'https://products-avenue.test/products/1'],
+            ],
+        ], $breadcrumb);
+    }
+
+    public function test_a_product_without_image_has_no_image_in_its_structured_data(): void
+    {
+        $body = $this->get('/products/2')->body;
+
+        self::assertArrayNotHasKey('image', $this->structuredData($body)[0]);
+        self::assertStringNotContainsString('og:image', $body);
+    }
+
+    public function test_a_product_title_cannot_break_out_of_the_structured_data(): void
+    {
+        $body = $this->get('/products/3')->body;
+
+        // The title "<script>alert(1)</script>" is encoded inside the JSON, never written as HTML.
+        self::assertSame('<script>alert(1)</script>', $this->structuredData($body)[0]['name']);
+        self::assertSame(2, substr_count($body, '</script>') - substr_count($body, '<script src='));
+    }
+
+    public function test_open_graph_describes_the_product_for_social_networks(): void
+    {
+        $body = $this->get('/products/1')->body;
+
+        self::assertStringContainsString('<meta property="og:type" content="product">', $body);
+        self::assertStringContainsString('<meta property="og:title" content="Fjallraven - Foldsack No. 1 Backpack">', $body);
+        self::assertStringContainsString('<meta property="og:url" content="https://products-avenue.test/products/1">', $body);
+        self::assertStringContainsString('<meta property="og:image" content="https://fakestoreapi.com/img/1.png">', $body);
+        self::assertStringContainsString('<meta property="og:site_name" content="Products Avenue">', $body);
+        self::assertStringContainsString('<meta property="og:locale" content="fr_FR">', $body);
+        self::assertStringContainsString('<meta property="product:price:amount" content="109.95">', $body);
+        self::assertStringContainsString('<meta property="product:price:currency" content="EUR">', $body);
+        self::assertMatchesRegularExpression('#<meta property="og:description" content="Your perfect pack[^"]*…">#', $body);
+    }
+
     public function test_the_product_page_is_never_cached(): void
     {
         // It holds a CSRF token of its own for each visitor: a shared cache would leak it.
@@ -115,5 +175,17 @@ final class ProductPageTest extends FunctionalTestCase
 
         self::assertStringNotContainsString('<script>alert(1)</script>', $body);
         self::assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $body);
+    }
+
+    /**
+     * The JSON-LD blocks of the page, decoded.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function structuredData(string $body): array
+    {
+        preg_match_all('#<script type="application/ld\+json">(.*?)</script>#s', $body, $matches);
+
+        return array_map(static fn(string $json): array => (array) json_decode($json, true, 512, JSON_THROW_ON_ERROR), $matches[1]);
     }
 }

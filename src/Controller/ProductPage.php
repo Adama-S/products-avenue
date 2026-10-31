@@ -40,12 +40,16 @@ final readonly class ProductPage
     public function render(Product $product, int $commentsPage, CommentForm $form, ?CommentNotice $notice, int $statusCode = 200): Response
     {
         $pagination = Pagination::of($this->comments->countByProduct($product->id), self::COMMENTS_PER_PAGE, $commentsPage);
+        $description = self::excerpt($product->description === '' ? $product->title : $product->description);
+        $url = $this->view->absoluteUrl(self::url($product->id, 1));
 
         $html = $this->view->page('product', [
             'title' => $product->title . ', ' . $product->price->format(),
-            'description' => self::excerpt($product->description === '' ? $product->title : $product->description),
+            'description' => $description,
             // The canonical never carries comments_page: one indexed URL per product.
             'canonicalPath' => self::url($product->id, 1),
+            'openGraph' => self::openGraph($product, $description, $url),
+            'structuredData' => [self::productSchema($product, $url), $this->breadcrumbSchema($product, $url)],
             'product' => $product,
             'comments' => $this->comments->findPageByProduct($product->id, self::COMMENTS_PER_PAGE, $pagination->offset()),
             'pagination' => $pagination,
@@ -66,6 +70,67 @@ final readonly class ProductPage
         $query = http_build_query(['comments_page' => $commentsPage > 1 ? $commentsPage : null, 'review' => $notice?->value]);
 
         return '/products/' . $productId . ($query === '' ? '' : '?' . $query);
+    }
+
+    /**
+     * Open Graph: the preview shown when the page is shared (title, image, price).
+     *
+     * @return array<string, string>
+     */
+    private static function openGraph(Product $product, string $description, string $url): array
+    {
+        return array_filter([
+            'og:type' => 'product',
+            'og:title' => $product->title,
+            'og:description' => $description,
+            'og:url' => $url,
+            'og:image' => $product->imageUrl ?? '',
+            'og:site_name' => 'Products Avenue',
+            'og:locale' => 'fr_FR',
+            'product:price:amount' => $product->price->decimal(),
+            'product:price:currency' => $product->price->currency,
+        ], static fn(string $content): bool => $content !== '');
+    }
+
+    /**
+     * schema.org Product: lets search engines show the price in their results.
+     * No availability: FakeStore does not give the stock.
+     *
+     * @return array<string, mixed>
+     */
+    private static function productSchema(Product $product, string $url): array
+    {
+        return array_filter([
+            '@context' => 'https://schema.org',
+            '@type' => 'Product',
+            'name' => $product->title,
+            'description' => $product->description,
+            'image' => $product->imageUrl,
+            'url' => $url,
+            'offers' => [
+                '@type' => 'Offer',
+                'price' => $product->price->decimal(),
+                'priceCurrency' => $product->price->currency,
+                'url' => $url,
+            ],
+        ], static fn(mixed $value): bool => $value !== null && $value !== '');
+    }
+
+    /**
+     * schema.org BreadcrumbList: the same levels as the visible breadcrumb.
+     *
+     * @return array<string, mixed>
+     */
+    private function breadcrumbSchema(Product $product, string $url): array
+    {
+        return [
+            '@context' => 'https://schema.org',
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => [
+                ['@type' => 'ListItem', 'position' => 1, 'name' => 'Catalogue', 'item' => $this->view->absoluteUrl('/')],
+                ['@type' => 'ListItem', 'position' => 2, 'name' => $product->title, 'item' => $url],
+            ],
+        ];
     }
 
     /**

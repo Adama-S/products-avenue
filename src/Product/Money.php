@@ -58,6 +58,15 @@ final readonly class Money
     }
 
     /**
+     * The amount for machines (schema.org, Open Graph): "109.95", a dot and two decimals,
+     * computed on integers only.
+     */
+    public function decimal(): string
+    {
+        return intdiv($this->amountInCents, 100) . '.' . str_pad((string) ($this->amountInCents % 100), 2, '0', STR_PAD_LEFT);
+    }
+
+    /**
      * French display format, computed on integers only: "1 234,50 €".
      * No intl here: a few currencies are enough, and the result stays predictable in tests.
      */

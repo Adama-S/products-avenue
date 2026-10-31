@@ -31,7 +31,11 @@
     --radius-form: 20px;
     --radius-pill: 999px;
     --space: 8px;
+    /* Fluid values: the mobile mockup (390px) on a phone, the desktop mockup from about 700px. */
     --gutter: clamp(16px, 4vw, 24px);
+    --header-height: clamp(60px, 4vw + 44px, 72px);
+    --page-top: clamp(28px, 5vw + 8px, 48px);
+    --page-gap: clamp(24px, 2vw + 16px, 32px);
     --content-width: 1200px;
     --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --text-small: 13px;
@@ -111,7 +115,7 @@ a:hover {
 }
 
 .site-header__inner {
-    height: 72px;
+    height: var(--header-height);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -121,15 +125,15 @@ a:hover {
 .brand {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: clamp(8px, 0.5vw + 6px, 10px);
     text-decoration: none;
-    font-size: 19px;
+    font-size: clamp(17px, 0.5vw + 15px, 19px);
     letter-spacing: -0.01em;
 }
 
 .brand__mark {
-    width: 28px;
-    height: 28px;
+    width: clamp(26px, 0.5vw + 24px, 28px);
+    height: clamp(26px, 0.5vw + 24px, 28px);
     border-radius: 8px;
     background: var(--color-ink);
     color: var(--color-white);
@@ -151,11 +155,11 @@ a:hover {
 }
 
 .page {
-    padding-top: calc(var(--space) * 6);
+    padding-top: var(--page-top);
     padding-bottom: calc(var(--space) * 10);
     display: flex;
     flex-direction: column;
-    gap: calc(var(--space) * 4);
+    gap: var(--page-gap);
 }
 
 .site-footer {
@@ -365,7 +369,7 @@ input.input {
 .product-card {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: clamp(12px, 0.5vw + 10px, 14px);
     text-decoration: none;
     color: var(--color-ink);
 }
