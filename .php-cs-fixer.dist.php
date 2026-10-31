@@ -3,11 +3,11 @@
 declare(strict_types=1);
 
 // Code style: PER Coding Style 3.0, plus the PHP 8.5 migration rules.
-$finder = (new PhpCsFixer\Finder())
+$finder = new PhpCsFixer\Finder()
     ->in([__DIR__ . '/src', __DIR__ . '/tests', __DIR__ . '/public'])
     ->append([__FILE__]);
 
-return (new PhpCsFixer\Config())
+return new PhpCsFixer\Config()
     ->setRiskyAllowed(true)
     ->setRules([
         '@PER-CS3.0' => true,
