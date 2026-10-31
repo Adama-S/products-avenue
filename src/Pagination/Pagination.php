@@ -79,6 +79,19 @@ final readonly class Pagination
     }
 
     /**
+     * Position of the first item of the page in the whole list (« Avis 11 à 20 sur 23 »), 0 when empty.
+     */
+    public function firstItemNumber(): int
+    {
+        return $this->totalItems === 0 ? 0 : $this->offset() + 1;
+    }
+
+    public function lastItemNumber(): int
+    {
+        return min($this->offset() + $this->perPage, $this->totalItems);
+    }
+
+    /**
      * @return list<int>
      */
     public function pages(): array

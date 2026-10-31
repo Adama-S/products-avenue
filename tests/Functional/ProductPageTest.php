@@ -4,51 +4,33 @@ declare(strict_types=1);
 
 namespace Tests\Functional;
 
-use App\Database\PdoFactory;
 use App\Http\Application;
 use App\Http\Request;
 use App\Http\Response;
 use App\Product\Money;
 use App\Product\Product;
-use PDO;
 use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\TestCase;
 use Tests\Double\FakeProductProvider;
+use Tests\Support\FunctionalTestCase;
 use Tests\Support\TestApplication;
 
-final class ProductPageTest extends TestCase
+final class ProductPageTest extends FunctionalTestCase
 {
     private const string LONG_DESCRIPTION = 'Your perfect pack for everyday use and walks in the forest. Stash your laptop (up to 15 inches) in the padded sleeve, your everyday essentials in the main compartment, and keep the rest close at hand.';
-
-    private PDO $pdo;
 
     private FakeProductProvider $products;
 
     private Application $application;
 
-    private string $logFile;
-
-    private string|false $previousErrorLog;
-
     protected function setUp(): void
     {
-        $this->logFile = (string) tempnam(sys_get_temp_dir(), 'log');
-        $this->previousErrorLog = ini_set('error_log', $this->logFile);
-
-        $this->pdo = PdoFactory::fromEnvironment()->create();
-        $this->pdo->exec('TRUNCATE TABLE comments');
+        parent::setUp();
         $this->products = new FakeProductProvider([
             new Product(1, 'Fjallraven - Foldsack No. 1 Backpack', self::LONG_DESCRIPTION, Money::fromCents(10995, 'EUR'), 'https://fakestoreapi.com/img/1.png'),
             new Product(2, 'Mens Casual T-Shirt', 'Slim-fitting style.', Money::fromCents(2230, 'EUR'), null),
             new Product(3, '<script>alert(1)</script>', 'Bad title.', Money::fromCents(100, 'EUR'), null),
         ]);
         $this->application = TestApplication::create($this->products, $this->pdo);
-    }
-
-    protected function tearDown(): void
-    {
-        ini_set('error_log', (string) $this->previousErrorLog);
-        unlink($this->logFile);
     }
 
     public function test_the_product_page_shows_the_title_the_price_the_description_and_a_large_image(): void

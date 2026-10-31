@@ -55,6 +55,15 @@ final class PaginationTest extends TestCase
         self::assertSame([17, 18, 19, 20], Pagination::of(20, 8, 3)->slice($items));
     }
 
+    public function test_it_numbers_the_items_of_the_page(): void
+    {
+        // « Avis 11 à 20 sur 23 »
+        self::assertSame([1, 10], [Pagination::of(23, 10, 1)->firstItemNumber(), Pagination::of(23, 10, 1)->lastItemNumber()]);
+        self::assertSame([11, 20], [Pagination::of(23, 10, 2)->firstItemNumber(), Pagination::of(23, 10, 2)->lastItemNumber()]);
+        self::assertSame([21, 23], [Pagination::of(23, 10, 3)->firstItemNumber(), Pagination::of(23, 10, 3)->lastItemNumber()]);
+        self::assertSame([0, 0], [Pagination::of(0, 10, 1)->firstItemNumber(), Pagination::of(0, 10, 1)->lastItemNumber()]);
+    }
+
     /**
      * @return iterable<string, array{int}>
      */

@@ -13,3 +13,16 @@ function e(string|int $value): string
 {
     return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
+
+/**
+ * A UTC date shown in French, in Paris time: « 31 octobre 2026 à 00:26 » (US-31).
+ *
+ * Dates are stored and handled in UTC; this is the only place where they become local
+ * time, so a stored date is never ambiguous around a daylight saving change.
+ */
+function french_datetime(DateTimeImmutable $date): string
+{
+    $formatter = new IntlDateFormatter('fr_FR', IntlDateFormatter::NONE, IntlDateFormatter::NONE, 'Europe/Paris', IntlDateFormatter::GREGORIAN, "d MMMM y 'à' HH:mm");
+
+    return (string) $formatter->format($date);
+}

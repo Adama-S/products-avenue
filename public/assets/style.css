@@ -21,9 +21,14 @@
     --color-success: #1d5130;
     --color-error-bg: #fbeeee;
     --color-error: #a3262a;
+    --color-error-strong: #8c1f23;
+    --color-danger-border: #ecc9ca;
+    --color-avatar: #f0efeb;
+    --color-review-text: #2b2b2b;
     --radius-tile: 16px;
     --radius-field: 12px;
     --radius-panel: 24px;
+    --radius-form: 20px;
     --radius-pill: 999px;
     --space: 8px;
     --gutter: clamp(16px, 4vw, 24px);
@@ -205,6 +210,90 @@ a:hover {
     background: var(--color-white);
     color: var(--color-ink);
     border: 1px solid var(--color-field-border);
+}
+
+.button--danger {
+    background: var(--color-white);
+    color: var(--color-error);
+    border: 1px solid var(--color-danger-border);
+}
+
+.button--small {
+    height: 36px;
+    padding: 0 14px;
+    font-size: var(--text-small);
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.field label {
+    font-weight: 600;
+    font-size: var(--text-muted);
+}
+
+.input {
+    border: 1px solid var(--color-field-border);
+    border-radius: var(--radius-field);
+    padding: 12px 14px;
+    font: inherit;
+    background: var(--color-white);
+    color: var(--color-ink);
+}
+
+input.input {
+    height: 48px;
+}
+
+.input--error {
+    border: 2px solid var(--color-error);
+}
+
+.field__error {
+    color: var(--color-error);
+    font-size: var(--text-small);
+    font-weight: 600;
+}
+
+.field__footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.field__counter {
+    margin-left: auto;
+    color: var(--color-muted);
+    font-size: var(--text-small);
+}
+
+.field__counter--over {
+    color: var(--color-error);
+    font-weight: 600;
+}
+
+.form-alert {
+    padding: 12px 14px;
+    border-radius: var(--radius-field);
+    background: var(--color-error-bg);
+    color: var(--color-error-strong);
+    font-size: var(--text-muted);
+    font-weight: 600;
+}
+
+.notice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    border-radius: var(--radius-field);
+    background: var(--color-success-bg);
+    color: var(--color-success);
+    font-weight: 600;
+    font-size: var(--text-ui);
 }
 
 .select {
@@ -418,6 +507,176 @@ a:hover {
     line-height: 1.65;
 }
 
+.product__reviews-link {
+    font-size: var(--text-muted);
+    font-weight: 600;
+}
+
+/* Reviews next to the form on a wide screen, the form below them on a phone. */
+.reviews {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 56px;
+    align-items: flex-start;
+    padding-top: calc(var(--space) * 3);
+    border-top: 1px solid var(--color-line);
+}
+
+.reviews__list {
+    flex: 999 1 480px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.reviews__header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space);
+    margin-bottom: var(--space);
+}
+
+.reviews__title {
+    margin: 0;
+    font-size: 24px;
+    letter-spacing: -0.01em;
+}
+
+.reviews__count {
+    color: var(--color-muted);
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.reviews__empty {
+    margin-top: var(--space);
+    padding: calc(var(--space) * 4);
+    border-radius: var(--radius-tile);
+    background: var(--color-surface-soft);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    color: var(--color-muted);
+}
+
+.reviews__empty strong {
+    color: var(--color-ink);
+}
+
+.review {
+    display: flex;
+    gap: calc(var(--space) * 2);
+    padding: calc(var(--space) * 3) 0;
+    border-top: 1px solid var(--color-line);
+}
+
+.review__avatar {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-pill);
+    background: var(--color-avatar);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: var(--text-ui);
+}
+
+.review__body {
+    flex-grow: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.review__header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space);
+}
+
+.review__author {
+    font-size: var(--text-ui);
+    overflow-wrap: anywhere;
+}
+
+.review__date {
+    color: var(--color-muted);
+    font-size: var(--text-small);
+}
+
+/* Line breaks typed by the visitor are kept, without any HTML in the review. */
+.review__content {
+    margin: 0;
+    color: var(--color-review-text);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.review__actions {
+    display: flex;
+    gap: var(--space);
+    padding-top: 6px;
+}
+
+.review__delete {
+    margin: 0;
+}
+
+.review-form {
+    flex: 1 1 360px;
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--space) * 2);
+    padding: 28px;
+    background: var(--color-surface-soft);
+    border-radius: var(--radius-form);
+}
+
+.review-form__title {
+    margin: 0;
+    font-size: 20px;
+    letter-spacing: -0.01em;
+}
+
+.review-form__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.edit-review {
+    max-width: 640px;
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--space) * 3);
+}
+
+.edit-review__heading {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.edit-review__heading > * {
+    margin: 0;
+}
+
+.edit-review__title {
+    font-size: clamp(28px, 6vw, 32px);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+}
+
 /* 7. Pagination */
 .pagination {
     display: flex;
@@ -453,6 +712,19 @@ a:hover {
     background: var(--color-ink);
     color: var(--color-white);
     font-weight: 700;
+}
+
+.pagination--compact {
+    justify-content: flex-start;
+    border-top: 1px solid var(--color-line);
+}
+
+.pagination--compact .pagination__link,
+.pagination--compact .pagination__current {
+    min-width: 40px;
+    height: 40px;
+    padding: 0 14px;
+    font-size: var(--text-muted);
 }
 
 /* 8. Error pages */

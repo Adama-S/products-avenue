@@ -27,5 +27,8 @@
     <php>
         <!-- Tests never touch the real catalog database. -->
         <env name="DB_NAME" value="catalog_test" force="true"/>
+        <!-- PHPUnit writes to the console before the tests: without cookies, the real PHP session can still start. -->
+        <ini name="session.use_cookies" value="0"/>
+        <ini name="session.cache_limiter" value=""/>
     </php>
 </phpunit>

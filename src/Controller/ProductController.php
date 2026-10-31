@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Comment\CommentForm;
+use App\Comment\CommentNotice;
 use App\Comment\CommentRepository;
+use App\Http\PathId;
 use App\Http\Request;
 use App\Http\Response;
 use App\Pagination\Pagination;
@@ -29,6 +32,7 @@ final readonly class ProductController
         private ProductProviderInterface $products,
         private CommentRepository $comments,
         private View $view,
+        private ProductPage $productPage,
         private int $defaultPerPage,
     ) {}
 
@@ -68,58 +72,23 @@ final readonly class ProductController
     }
 
     /**
-     * The product page: /products/{id}.
-     *
-     * Never cached (no-store): it shows confirmation messages, reviews that change, and
-     * will carry a CSRF token of its own for each visitor; a shared cache would serve one
-     * visitor's token to another.
+     * The product page: /products/{id}, with one page of reviews (?comments_page=N) and
+     * the confirmation of the last review form (?review=published).
      *
      * @throws ProductNotFoundException when the id is invalid or unknown (404)
+     * @throws \App\Http\PageNotFoundException when the review page does not exist (404)
      * @throws \App\Product\ProductApiUnavailableException when the product cannot be read (503)
      */
-    public function show(string $id): Response
+    public function show(Request $request, string $id): Response
     {
-        $product = $this->products->getById(self::productId($id));
+        $productId = PathId::parse($id) ?? throw new ProductNotFoundException(\sprintf('Invalid product id "%s".', $id));
 
-        $html = $this->view->page('product', [
-            'title' => $product->title . ', ' . $product->price->format(),
-            'description' => self::excerpt($product->description === '' ? $product->title : $product->description),
-            'canonicalPath' => '/products/' . $product->id,
-            'product' => $product,
-        ]);
-
-        return Response::html(200, $html, ['Cache-Control' => 'no-store']);
-    }
-
-    /**
-     * A product id from the URL, checked before it goes anywhere near the API URL:
-     * a plain positive integer, or the product does not exist.
-     *
-     * @throws ProductNotFoundException
-     */
-    private static function productId(string $parameter): int
-    {
-        if (preg_match('/^[1-9]\d{0,8}$/', $parameter) !== 1) {
-            throw new ProductNotFoundException(\sprintf('Invalid product id "%s".', $parameter));
-        }
-
-        return (int) $parameter;
-    }
-
-    /**
-     * Meta description: search engines show about 155 characters; cut on a word, never mid-word.
-     */
-    private static function excerpt(string $text): string
-    {
-        $text = trim((string) preg_replace('/\s+/', ' ', $text));
-        if (mb_strlen($text) <= 155) {
-            return $text;
-        }
-
-        $cut = mb_substr($text, 0, 154);
-        $lastSpace = mb_strrpos($cut, ' ');
-
-        return rtrim(mb_substr($cut, 0, $lastSpace === false ? 154 : $lastSpace), ' ,.;:') . '…';
+        return $this->productPage->render(
+            $this->products->getById($productId),
+            Pagination::pageFromQuery($request->query('comments_page')),
+            new CommentForm(),
+            CommentNotice::tryFrom($request->query('review') ?? ''),
+        );
     }
 
     /**

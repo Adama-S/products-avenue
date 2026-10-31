@@ -5,10 +5,7 @@ declare(strict_types=1);
 namespace Tests\Functional;
 
 use App\Comment\CommentRepository;
-use App\Controller\HealthController;
-use App\Controller\ProductController;
 use App\Database\DatabaseUnavailableException;
-use App\Database\PdoFactory;
 use App\Http\Application;
 use App\Http\Request;
 use App\Http\Response;
@@ -17,37 +14,21 @@ use App\Product\Product;
 use App\View\View;
 use PDO;
 use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\TestCase;
 use Tests\Double\FakeProductProvider;
+use Tests\Support\FunctionalTestCase;
 use Tests\Support\TestApplication;
 
-final class CatalogueTest extends TestCase
+final class CatalogueTest extends FunctionalTestCase
 {
-    private PDO $pdo;
-
     private FakeProductProvider $products;
 
     private Application $application;
 
-    private string $logFile;
-
-    private string|false $previousErrorLog;
-
     protected function setUp(): void
     {
-        // The application logs the cause of each 503: kept out of the test output.
-        $this->logFile = (string) tempnam(sys_get_temp_dir(), 'log');
-        $this->previousErrorLog = ini_set('error_log', $this->logFile);
-        $this->pdo = PdoFactory::fromEnvironment()->create();
-        $this->pdo->exec('TRUNCATE TABLE comments');
+        parent::setUp();
         $this->products = FakeProductProvider::withIds(...range(1, 20));
         $this->application = TestApplication::create($this->products, $this->pdo);
-    }
-
-    protected function tearDown(): void
-    {
-        ini_set('error_log', (string) $this->previousErrorLog);
-        unlink($this->logFile);
     }
 
     public function test_the_first_page_lists_ten_products_with_title_image_and_price(): void
@@ -305,13 +286,13 @@ final class CatalogueTest extends TestCase
     {
         $view = new View(\dirname(__DIR__, 2) . '/templates', TestApplication::APP_URL);
         $comments = new CommentRepository(static fn(): PDO => throw new DatabaseUnavailableException('MySQL is down.'));
-        $application = new Application(new ProductController($this->products, $comments, $view, 10), new HealthController(PdoFactory::fromEnvironment()), $view);
+        $application = TestApplication::withComments($this->products, $comments, $view);
 
         $response = $application->handle(new Request('GET', '/'));
 
         self::assertSame(503, $response->statusCode);
         self::assertStringNotContainsString('MySQL is down', $response->body);
-        self::assertStringContainsString('MySQL is down', (string) file_get_contents($this->logFile));
+        self::assertStringContainsString('MySQL is down', $this->logs());
     }
 
     public function test_the_health_check_reports_the_database(): void

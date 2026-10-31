@@ -31,6 +31,7 @@ declare(strict_types=1);
 <?php } ?>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/assets/style.css">
+    <script src="/assets/app.js" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#contenu">Aller au contenu</a>

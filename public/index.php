@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Front Controller and Composition Root (US-10, US-22).
+ * Front Controller and Composition Root (US-10, US-22, US-31).
  *
  * Every URL that is not a file reaches this script (FallbackResource). It is the only
  * place where concrete classes are chosen: the rest of the code depends on interfaces.
@@ -13,9 +13,12 @@ declare(strict_types=1);
 use App\Cache\FileCache;
 use App\Cache\SystemClock;
 use App\Comment\CommentRepository;
+use App\Comment\CommentValidator;
 use App\Config;
+use App\Controller\CommentController;
 use App\Controller\HealthController;
 use App\Controller\ProductController;
+use App\Controller\ProductPage;
 use App\Database\PdoFactory;
 use App\Http\Application;
 use App\Http\Client\CurlHttpClient;
@@ -24,6 +27,7 @@ use App\Product\CachedProductProvider;
 use App\Product\HttpProductProvider;
 use App\Product\Money;
 use App\Product\Product;
+use App\Security\Csrf;
 use App\View\View;
 
 $root = dirname(__DIR__);
@@ -41,9 +45,12 @@ $products = new CachedProductProvider(
 );
 // The connection opens on the first query: see CommentRepository.
 $comments = new CommentRepository($database->create(...));
+$csrf = new Csrf();
+$productPage = new ProductPage($comments, $csrf, $view);
 
 $application = new Application(
-    new ProductController($products, $comments, $view, $config->productsPerPage),
+    new ProductController($products, $comments, $view, $productPage, $config->productsPerPage),
+    new CommentController($products, $comments, new CommentValidator(), $csrf, $productPage, $view),
     new HealthController($database),
     $view,
 );
