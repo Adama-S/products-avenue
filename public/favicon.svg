@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Products Avenue mark, as in the header logo: an avenue seen in perspective. -->
+  <rect width="32" height="32" rx="9" fill="#141414"/>
+  <g transform="translate(5 5) scale(0.9167)" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round">
+    <path d="M8 3L5 21M16 3l3 18M12 4v3M12 11v3M12 18v2"/>
+  </g>
+</svg>

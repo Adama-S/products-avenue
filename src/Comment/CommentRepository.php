@@ -14,11 +14,20 @@ use PDO;
  * finds nothing. The product itself is not in this database (FakeStore API): checking that
  * it exists before saving is the caller's job.
  */
-final readonly class CommentRepository
+final class CommentRepository
 {
     private const string COLUMNS = 'id, product_external_id, author, content, created_at, updated_at';
 
-    public function __construct(private PDO $pdo) {}
+    private ?PDO $connection = null;
+
+    /**
+     * The connection is opened on the first query, through $connect: a database outage
+     * surfaces while the request is handled, where it becomes a 503 page, and a page
+     * that reads no review never connects.
+     *
+     * @param \Closure(): PDO $connect
+     */
+    public function __construct(private readonly \Closure $connect) {}
 
     /**
      * One page of the reviews of a product, newest first.
@@ -30,7 +39,7 @@ final readonly class CommentRepository
         // id DESC breaks ties between reviews of the same second: without it, a review could
         // show on two pages or on none. Served by idx_comments_product_created (InnoDB appends id).
         // OFFSET re-reads the skipped rows: fine for a few hundred reviews per product.
-        $statement = $this->pdo->prepare(
+        $statement = $this->pdo()->prepare(
             'SELECT ' . self::COLUMNS . ' FROM comments WHERE product_external_id = ?'
             . ' ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?',
         );
@@ -44,7 +53,7 @@ final readonly class CommentRepository
 
     public function countByProduct(int $productId): int
     {
-        $statement = $this->pdo->prepare('SELECT COUNT(*) FROM comments WHERE product_external_id = ?');
+        $statement = $this->pdo()->prepare('SELECT COUNT(*) FROM comments WHERE product_external_id = ?');
         $statement->execute([$productId]);
 
         return (int) $statement->fetchColumn();
@@ -67,7 +76,7 @@ final readonly class CommentRepository
         }
 
         $placeholders = implode(', ', array_fill(0, \count($productIds), '?'));
-        $statement = $this->pdo->prepare(
+        $statement = $this->pdo()->prepare(
             "SELECT product_external_id, COUNT(*) FROM comments WHERE product_external_id IN ({$placeholders})"
             . ' GROUP BY product_external_id',
         );
@@ -86,7 +95,7 @@ final readonly class CommentRepository
      */
     public function findForProduct(int $commentId, int $productId): ?Comment
     {
-        $statement = $this->pdo->prepare('SELECT ' . self::COLUMNS . ' FROM comments WHERE id = ? AND product_external_id = ?');
+        $statement = $this->pdo()->prepare('SELECT ' . self::COLUMNS . ' FROM comments WHERE id = ? AND product_external_id = ?');
         $statement->execute([$commentId, $productId]);
         $row = $statement->fetch();
 
@@ -100,10 +109,10 @@ final readonly class CommentRepository
      */
     public function create(int $productId, string $author, string $content): int
     {
-        $statement = $this->pdo->prepare('INSERT INTO comments (product_external_id, author, content) VALUES (?, ?, ?)');
+        $statement = $this->pdo()->prepare('INSERT INTO comments (product_external_id, author, content) VALUES (?, ?, ?)');
         $statement->execute([$productId, $author, $content]);
 
-        return (int) $this->pdo->lastInsertId();
+        return (int) $this->pdo()->lastInsertId();
     }
 
     /**
@@ -114,7 +123,7 @@ final readonly class CommentRepository
      */
     public function update(int $commentId, int $productId, string $author, string $content): void
     {
-        $statement = $this->pdo->prepare('UPDATE comments SET author = ?, content = ? WHERE id = ? AND product_external_id = ?');
+        $statement = $this->pdo()->prepare('UPDATE comments SET author = ?, content = ? WHERE id = ? AND product_external_id = ?');
         $statement->execute([$author, $content, $commentId, $productId]);
     }
 
@@ -123,8 +132,16 @@ final readonly class CommentRepository
      */
     public function delete(int $commentId, int $productId): void
     {
-        $statement = $this->pdo->prepare('DELETE FROM comments WHERE id = ? AND product_external_id = ?');
+        $statement = $this->pdo()->prepare('DELETE FROM comments WHERE id = ? AND product_external_id = ?');
         $statement->execute([$commentId, $productId]);
+    }
+
+    /**
+     * @throws \App\Database\DatabaseUnavailableException when MySQL cannot be reached
+     */
+    private function pdo(): PDO
+    {
+        return $this->connection ??= ($this->connect)();
     }
 
     /**

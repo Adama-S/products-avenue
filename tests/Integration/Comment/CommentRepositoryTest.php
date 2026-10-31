@@ -23,7 +23,7 @@ final class CommentRepositoryTest extends TestCase
     {
         $this->pdo = PdoFactory::fromEnvironment()->create();
         $this->pdo->exec('TRUNCATE TABLE comments');
-        $this->repository = new CommentRepository($this->pdo);
+        $this->repository = new CommentRepository(fn(): PDO => $this->pdo);
     }
 
     public function test_a_created_comment_can_be_read_back(): void
