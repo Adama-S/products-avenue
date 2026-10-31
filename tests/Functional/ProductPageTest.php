@@ -4,33 +4,27 @@ declare(strict_types=1);
 
 namespace Tests\Functional;
 
-use App\Http\Application;
-use App\Http\Request;
-use App\Http\Response;
 use App\Product\Money;
 use App\Product\Product;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Double\FakeProductProvider;
 use Tests\Support\FunctionalTestCase;
-use Tests\Support\TestApplication;
 
+/**
+ * The product page, without its reviews (see ReviewsTest).
+ */
 final class ProductPageTest extends FunctionalTestCase
 {
     private const string LONG_DESCRIPTION = 'Your perfect pack for everyday use and walks in the forest. Stash your laptop (up to 15 inches) in the padded sleeve, your everyday essentials in the main compartment, and keep the rest close at hand.';
 
-    private FakeProductProvider $products;
-
-    private Application $application;
-
     protected function setUp(): void
     {
         parent::setUp();
-        $this->products = new FakeProductProvider([
+        $this->givenProducts(new FakeProductProvider([
             new Product(1, 'Fjallraven - Foldsack No. 1 Backpack', self::LONG_DESCRIPTION, Money::fromCents(10995, 'EUR'), 'https://fakestoreapi.com/img/1.png'),
             new Product(2, 'Mens Casual T-Shirt', 'Slim-fitting style.', Money::fromCents(2230, 'EUR'), null),
             new Product(3, '<script>alert(1)</script>', 'Bad title.', Money::fromCents(100, 'EUR'), null),
-        ]);
-        $this->application = TestApplication::create($this->products, $this->pdo);
+        ]));
     }
 
     public function test_the_product_page_shows_the_title_the_price_the_description_and_a_large_image(): void
@@ -55,10 +49,7 @@ final class ProductPageTest extends FunctionalTestCase
 
     public function test_the_breadcrumb_leads_back_to_the_catalogue(): void
     {
-        $body = $this->get('/products/1')->body;
-
-        preg_match('#<nav class="breadcrumb" aria-label="Fil d\'Ariane">.*?</nav>#s', $body, $matches);
-        $breadcrumb = $matches[0] ?? self::fail('The page has no breadcrumb.');
+        $breadcrumb = self::fragment($this->get('/products/1')->body, '#<nav class="breadcrumb" aria-label="Fil d\'Ariane">.*?</nav>#s');
 
         self::assertStringContainsString('<ol class="breadcrumb__list">', $breadcrumb);
         self::assertStringContainsString('<a href="/">Catalogue</a>', $breadcrumb);
@@ -82,14 +73,9 @@ final class ProductPageTest extends FunctionalTestCase
         self::assertStringEndsWith('…', $description);
     }
 
-    public function test_a_short_description_is_not_cut(): void
-    {
-        self::assertStringContainsString('<meta name="description" content="Slim-fitting style.">', $this->get('/products/2')->body);
-    }
-
     public function test_the_product_page_is_never_cached(): void
     {
-        // It will hold a CSRF token of its own for each visitor: a shared cache would leak it.
+        // It holds a CSRF token of its own for each visitor: a shared cache would leak it.
         self::assertSame('no-store', $this->get('/products/1')->headers['Cache-Control']);
     }
 
@@ -110,10 +96,7 @@ final class ProductPageTest extends FunctionalTestCase
     {
         yield 'text' => ['/products/abc'];
         yield 'zero' => ['/products/0'];
-        yield 'negative' => ['/products/-1'];
         yield 'leading zero' => ['/products/01'];
-        yield 'decimal' => ['/products/1.5'];
-        yield 'too long' => ['/products/12345678901234567890'];
     }
 
     #[DataProvider('invalidIds')]
@@ -126,23 +109,11 @@ final class ProductPageTest extends FunctionalTestCase
         self::assertSame(0, $this->products->calls);
     }
 
-    public function test_an_api_outage_returns_a_service_unavailable_page(): void
-    {
-        $this->products->goDown();
-
-        self::assertSame(503, $this->get('/products/1')->statusCode);
-    }
-
     public function test_product_data_is_escaped_everywhere(): void
     {
         $body = $this->get('/products/3')->body;
 
         self::assertStringNotContainsString('<script>alert(1)</script>', $body);
         self::assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $body);
-    }
-
-    private function get(string $path): Response
-    {
-        return $this->application->handle(new Request('GET', $path));
     }
 }

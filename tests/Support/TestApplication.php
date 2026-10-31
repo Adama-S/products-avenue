@@ -15,11 +15,10 @@ use App\Http\Application;
 use App\Product\ProductProviderInterface;
 use App\Security\Csrf;
 use App\View\View;
-use PDO;
 
 /**
- * Builds the application as public/index.php does, with a fake product provider
- * and the catalog_test database: the same routes, controllers and templates.
+ * Builds the application as public/index.php does, with the products and the review
+ * repository chosen by the test: the same routes, controllers and templates.
  */
 final readonly class TestApplication
 {
@@ -27,18 +26,9 @@ final readonly class TestApplication
 
     public const int PRODUCTS_PER_PAGE = 10;
 
-    public static function create(ProductProviderInterface $products, PDO $pdo): Application
+    public static function create(ProductProviderInterface $products, CommentRepository $comments): Application
     {
         $view = new View(\dirname(__DIR__, 2) . '/templates', self::APP_URL);
-
-        return self::withComments($products, new CommentRepository(static fn(): PDO => $pdo), $view);
-    }
-
-    /**
-     * Same wiring with a repository of your choice (a database that is down, for instance).
-     */
-    public static function withComments(ProductProviderInterface $products, CommentRepository $comments, View $view): Application
-    {
         $csrf = new Csrf();
         $productPage = new ProductPage($comments, $csrf, $view);
 

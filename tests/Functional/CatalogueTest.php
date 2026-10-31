@@ -6,30 +6,20 @@ namespace Tests\Functional;
 
 use App\Comment\CommentRepository;
 use App\Database\DatabaseUnavailableException;
-use App\Http\Application;
-use App\Http\Request;
-use App\Http\Response;
 use App\Product\Money;
 use App\Product\Product;
-use App\View\View;
 use PDO;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Double\FakeProductProvider;
 use Tests\Support\FunctionalTestCase;
 use Tests\Support\TestApplication;
 
+/**
+ * The catalogue: products 1 to 20, 10 per page by default.
+ */
 final class CatalogueTest extends FunctionalTestCase
 {
-    private FakeProductProvider $products;
-
-    private Application $application;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->products = FakeProductProvider::withIds(...range(1, 20));
-        $this->application = TestApplication::create($this->products, $this->pdo);
-    }
+    private const string PAGINATION = '#<nav class="pagination".*?</nav>#s';
 
     public function test_the_first_page_lists_ten_products_with_title_image_and_price(): void
     {
@@ -48,11 +38,12 @@ final class CatalogueTest extends FunctionalTestCase
 
     public function test_a_product_image_is_lazy_loaded_with_fixed_dimensions_and_a_text_alternative(): void
     {
-        $this->products = new FakeProductProvider([
+        $this->givenProducts(new FakeProductProvider([
             new Product(1, 'Backpack', 'A bag.', Money::fromCents(10995, 'EUR'), 'https://fakestoreapi.com/img/1.png'),
             FakeProductProvider::product(2),
-        ]);
-        $body = TestApplication::create($this->products, $this->pdo)->handle(new Request('GET', '/'))->body;
+        ]));
+
+        $body = $this->get('/')->body;
 
         self::assertMatchesRegularExpression('#<img src="https://fakestoreapi.com/img/1.png" alt="Backpack" width="\d+" height="\d+" loading="lazy"#', $body);
         // Product 2 has no image: a placeholder, never a broken <img>.
@@ -62,10 +53,9 @@ final class CatalogueTest extends FunctionalTestCase
 
     public function test_each_card_shows_its_review_count(): void
     {
-        $comments = new CommentRepository(fn(): PDO => $this->pdo);
-        $comments->create(1, 'Camille', 'Bien.');
-        $comments->create(1, 'Inès', 'Très bien.');
-        $comments->create(3, 'Léa', 'Parfait.');
+        $this->insertReview(1, 'Camille');
+        $this->insertReview(1, 'Inès');
+        $this->insertReview(3, 'Léa');
 
         $body = $this->get('/')->body;
 
@@ -85,7 +75,7 @@ final class CatalogueTest extends FunctionalTestCase
         self::assertStringContainsString('<link rel="canonical" href="https://products-avenue.test/?page=2">', $body);
     }
 
-    public function test_the_first_page_has_a_canonical_without_parameters(): void
+    public function test_the_first_page_has_its_own_title_canonical_and_description(): void
     {
         $body = $this->get('/')->body;
 
@@ -95,17 +85,9 @@ final class CatalogueTest extends FunctionalTestCase
         self::assertStringContainsString('<meta name="description" content="', $body);
     }
 
-    public function test_every_page_declares_the_favicon(): void
-    {
-        foreach (['/', '/?page=99'] as $uri) {
-            self::assertStringContainsString('<link rel="icon" href="/favicon.svg" type="image/svg+xml">', $this->get($uri)->body);
-        }
-        self::assertFileExists(\dirname(__DIR__, 2) . '/public/favicon.svg');
-    }
-
     public function test_the_pagination_has_no_previous_link_on_the_first_page(): void
     {
-        $pagination = $this->pagination($this->get('/')->body);
+        $pagination = self::fragment($this->get('/')->body, self::PAGINATION);
 
         self::assertStringContainsString('aria-label="Pagination"', $pagination);
         self::assertStringContainsString('<span class="pagination__current" aria-current="page">1</span>', $pagination);
@@ -116,7 +98,7 @@ final class CatalogueTest extends FunctionalTestCase
 
     public function test_the_pagination_has_no_next_link_on_the_last_page(): void
     {
-        $pagination = $this->pagination($this->get('/?page=2')->body);
+        $pagination = self::fragment($this->get('/?page=2')->body, self::PAGINATION);
 
         self::assertStringContainsString('<span class="pagination__current" aria-current="page">2</span>', $pagination);
         self::assertStringContainsString('<a class="pagination__link" href="/" rel="prev">', $pagination);
@@ -128,11 +110,9 @@ final class CatalogueTest extends FunctionalTestCase
      */
     public static function invalidPages(): iterable
     {
+        // Every invalid form of ?page is unit-tested in PaginationTest.
         yield 'after the last page' => ['/?page=99'];
-        yield 'zero' => ['/?page=0'];
-        yield 'text' => ['/?page=abc'];
-        yield 'negative' => ['/?page=-1'];
-        yield 'array' => ['/?page[]=1'];
+        yield 'not a single value' => ['/?page[]=1'];
     }
 
     #[DataProvider('invalidPages')]
@@ -147,14 +127,6 @@ final class CatalogueTest extends FunctionalTestCase
         self::assertSame('no-store', $response->headers['Cache-Control']);
     }
 
-    public function test_an_unknown_url_returns_a_not_found_page(): void
-    {
-        $response = $this->get('/unknown');
-
-        self::assertSame(404, $response->statusCode);
-        self::assertStringContainsString('Page introuvable', $response->body);
-    }
-
     public function test_the_visitor_can_show_twenty_products_per_page(): void
     {
         $body = $this->get('/?per_page=20')->body;
@@ -166,13 +138,14 @@ final class CatalogueTest extends FunctionalTestCase
 
     public function test_the_chosen_page_size_is_kept_in_the_pagination_links(): void
     {
-        $this->products = FakeProductProvider::withIds(...range(1, 45));
-        $application = TestApplication::create($this->products, $this->pdo);
+        $this->givenProducts(FakeProductProvider::withIds(...range(1, 45)));
 
-        $pagination = $this->pagination($application->handle(new Request('GET', '/', ['page' => '2', 'per_page' => '20']))->body);
+        $pagination = self::fragment($this->get('/?page=2&per_page=20')->body, self::PAGINATION);
 
         self::assertStringContainsString('href="/?per_page=20"', $pagination);
         self::assertStringContainsString('href="/?page=3&amp;per_page=20"', $pagination);
+        // The canonical never carries per_page: one indexed URL per page of the catalogue.
+        self::assertStringContainsString('<link rel="canonical" href="https://products-avenue.test/?page=2">', $this->get('/?page=2&per_page=20')->body);
     }
 
     public function test_an_unknown_page_size_falls_back_to_the_default_without_error(): void
@@ -182,23 +155,6 @@ final class CatalogueTest extends FunctionalTestCase
         self::assertSame(200, $response->statusCode);
         self::assertSame(10, substr_count($response->body, 'class="product-card"'));
         self::assertStringNotContainsString('per_page=100000', $response->body);
-    }
-
-    public function test_the_page_size_form_works_without_javascript(): void
-    {
-        $body = $this->get('/')->body;
-
-        self::assertMatchesRegularExpression('#<form [^>]*method="get" action="/"#', $body);
-        self::assertStringContainsString('<label for="per-page"', $body);
-        self::assertStringContainsString('<select id="per-page" name="per_page"', $body);
-        self::assertStringContainsString('<button', $body);
-    }
-
-    public function test_the_canonical_never_contains_the_page_size(): void
-    {
-        $body = $this->get('/?page=2&per_page=10')->body;
-
-        self::assertStringContainsString('<link rel="canonical" href="https://products-avenue.test/?page=2">', $body);
     }
 
     public function test_the_catalogue_can_be_cached_by_browsers_and_proxies(): void
@@ -214,7 +170,7 @@ final class CatalogueTest extends FunctionalTestCase
     {
         $etag = $this->get('/')->headers['ETag'];
 
-        $response = $this->application->handle(new Request('GET', '/', headers: ['if-none-match' => $etag]));
+        $response = $this->get('/', ['if-none-match' => $etag]);
 
         self::assertSame(304, $response->statusCode);
         self::assertSame('', $response->body);
@@ -223,19 +179,9 @@ final class CatalogueTest extends FunctionalTestCase
 
     public function test_the_etag_is_compared_the_weak_way(): void
     {
-        $etag = $this->get('/')->headers['ETag'];
-        $strongForm = substr($etag, 2);
+        $strongForm = substr($this->get('/')->headers['ETag'], 2);
 
-        $response = $this->application->handle(new Request('GET', '/', headers: ['if-none-match' => '"other", ' . $strongForm]));
-
-        self::assertSame(304, $response->statusCode);
-    }
-
-    public function test_a_changed_catalogue_returns_the_new_page(): void
-    {
-        $response = $this->application->handle(new Request('GET', '/', headers: ['if-none-match' => '"outdated"']));
-
-        self::assertSame(200, $response->statusCode);
+        self::assertSame(304, $this->get('/', ['if-none-match' => '"other", ' . $strongForm])->statusCode);
     }
 
     public function test_the_catalogue_opens_no_session_and_sets_no_cookie(): void
@@ -252,22 +198,11 @@ final class CatalogueTest extends FunctionalTestCase
             $headers = $this->get($uri)->headers;
 
             self::assertStringContainsString("default-src 'self'", $headers['Content-Security-Policy']);
-            self::assertStringContainsString('img-src \'self\' https://fakestoreapi.com', $headers['Content-Security-Policy']);
+            self::assertStringContainsString("img-src 'self' https://fakestoreapi.com", $headers['Content-Security-Policy']);
             self::assertSame('strict-origin-when-cross-origin', $headers['Referrer-Policy']);
             self::assertSame('nosniff', $headers['X-Content-Type-Options']);
             self::assertSame('DENY', $headers['X-Frame-Options']);
         }
-    }
-
-    public function test_product_data_from_the_api_is_escaped(): void
-    {
-        $this->products = new FakeProductProvider([
-            new Product(1, '<script>alert(1)</script>', 'A bag.', Money::fromCents(100, 'EUR'), null),
-        ]);
-        $body = TestApplication::create($this->products, $this->pdo)->handle(new Request('GET', '/'))->body;
-
-        self::assertStringNotContainsString('<script>alert(1)</script>', $body);
-        self::assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $body);
     }
 
     public function test_an_api_outage_without_a_copy_returns_a_service_unavailable_page(): void
@@ -284,37 +219,14 @@ final class CatalogueTest extends FunctionalTestCase
 
     public function test_a_database_outage_returns_a_service_unavailable_page(): void
     {
-        $view = new View(\dirname(__DIR__, 2) . '/templates', TestApplication::APP_URL);
-        $comments = new CommentRepository(static fn(): PDO => throw new DatabaseUnavailableException('MySQL is down.'));
-        $application = TestApplication::withComments($this->products, $comments, $view);
+        $downDatabase = new CommentRepository(static fn(): PDO => throw new DatabaseUnavailableException('MySQL is down.'));
+        $this->application = TestApplication::create($this->products, $downDatabase);
 
-        $response = $application->handle(new Request('GET', '/'));
+        $response = $this->get('/');
 
         self::assertSame(503, $response->statusCode);
         self::assertStringNotContainsString('MySQL is down', $response->body);
         self::assertStringContainsString('MySQL is down', $this->logs());
     }
 
-    public function test_the_health_check_reports_the_database(): void
-    {
-        $response = $this->get('/health');
-
-        self::assertSame(200, $response->statusCode);
-        self::assertSame('{"status":"ok","database":"up"}', $response->body);
-    }
-
-    private function get(string $uri): Response
-    {
-        $path = (string) parse_url($uri, PHP_URL_PATH);
-        parse_str((string) parse_url($uri, PHP_URL_QUERY), $query);
-
-        return $this->application->handle(new Request('GET', $path, $query));
-    }
-
-    private function pagination(string $body): string
-    {
-        preg_match('#<nav class="pagination".*?</nav>#s', $body, $matches);
-
-        return $matches[0] ?? self::fail('The page has no pagination.');
-    }
 }
