@@ -39,3 +39,7 @@ The databases are created on the first start only. To recreate them (this delete
 ```bash
 docker compose down -v && docker compose up -d --wait
 ```
+
+## Going further
+
+- **Injected logger.** Errors are logged with `error_log()`, which Docker sends to `docker compose logs app`; tests redirect it to a temporary file. In a v2, a PSR-3 logger (Monolog) injected in the constructors would add log levels, structured context (URL, status, duration as fields) and shipping to a log platform, and tests would assert on an in-memory logger.
