@@ -36,6 +36,7 @@ final readonly class Application
     ) {
         $this->router = new Router();
         $this->router->get('/', static fn(Request $request): Response => $productController->list($request));
+        $this->router->get('/products/{id}', static fn(Request $request, array $parameters): Response => $productController->show($parameters['id']));
         $this->router->get('/health', static fn(): Response => $healthController->check());
     }
 

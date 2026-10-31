@@ -10,11 +10,12 @@ use App\Http\Response;
 use App\Pagination\Pagination;
 use App\Product\PerPage;
 use App\Product\Product;
+use App\Product\ProductNotFoundException;
 use App\Product\ProductProviderInterface;
 use App\View\View;
 
 /**
- * Catalogue pages (US-22).
+ * Catalogue and product pages (US-22, US-23).
  *
  * Thin: reads the request, asks the provider and the repository, hands the data to a
  * template. No SQL, no HTML here.
@@ -64,6 +65,61 @@ final readonly class ProductController
         ]);
 
         return $this->cacheable($request, $html);
+    }
+
+    /**
+     * The product page: /products/{id}.
+     *
+     * Never cached (no-store): it shows confirmation messages, reviews that change, and
+     * will carry a CSRF token of its own for each visitor; a shared cache would serve one
+     * visitor's token to another.
+     *
+     * @throws ProductNotFoundException when the id is invalid or unknown (404)
+     * @throws \App\Product\ProductApiUnavailableException when the product cannot be read (503)
+     */
+    public function show(string $id): Response
+    {
+        $product = $this->products->getById(self::productId($id));
+
+        $html = $this->view->page('product', [
+            'title' => $product->title . ', ' . $product->price->format(),
+            'description' => self::excerpt($product->description === '' ? $product->title : $product->description),
+            'canonicalPath' => '/products/' . $product->id,
+            'product' => $product,
+        ]);
+
+        return Response::html(200, $html, ['Cache-Control' => 'no-store']);
+    }
+
+    /**
+     * A product id from the URL, checked before it goes anywhere near the API URL:
+     * a plain positive integer, or the product does not exist.
+     *
+     * @throws ProductNotFoundException
+     */
+    private static function productId(string $parameter): int
+    {
+        if (preg_match('/^[1-9]\d{0,8}$/', $parameter) !== 1) {
+            throw new ProductNotFoundException(\sprintf('Invalid product id "%s".', $parameter));
+        }
+
+        return (int) $parameter;
+    }
+
+    /**
+     * Meta description: search engines show about 155 characters; cut on a word, never mid-word.
+     */
+    private static function excerpt(string $text): string
+    {
+        $text = trim((string) preg_replace('/\s+/', ' ', $text));
+        if (mb_strlen($text) <= 155) {
+            return $text;
+        }
+
+        $cut = mb_substr($text, 0, 154);
+        $lastSpace = mb_strrpos($cut, ' ');
+
+        return rtrim(mb_substr($cut, 0, $lastSpace === false ? 154 : $lastSpace), ' ,.;:') . '…';
     }
 
     /**

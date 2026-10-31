@@ -281,7 +281,8 @@ a:hover {
     color: var(--color-ink);
 }
 
-.product-card__image {
+.product-card__image,
+.product__image {
     aspect-ratio: 1 / 1;
     padding: calc(var(--space) * 3);
     background: var(--color-surface);
@@ -299,7 +300,8 @@ a:hover {
 }
 
 /* FakeStore images come in every shape: shown whole, centred. Multiply blends their white background into the tile. */
-.product-card__image img {
+.product-card__image img,
+.product__image img {
     width: 100%;
     height: 100%;
     object-fit: contain;
@@ -353,7 +355,70 @@ a:hover {
     color: var(--color-muted);
 }
 
-/* 6. Pagination */
+/* 6. Product page */
+.product-page {
+    padding-top: calc(var(--space) * 3);
+}
+
+.breadcrumb__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space);
+    font-size: var(--text-muted);
+    color: var(--color-muted);
+}
+
+.breadcrumb__list a {
+    color: var(--color-muted);
+}
+
+.breadcrumb__list [aria-current="page"] {
+    color: var(--color-ink);
+}
+
+/* Image and text side by side when there is room, stacked on a phone: no media query needed. */
+.product {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+    gap: 56px;
+    align-items: center;
+}
+
+.product__image {
+    padding: calc(var(--space) * 5);
+}
+
+.product__summary {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.product__summary > * {
+    margin: 0;
+}
+
+.product__title {
+    font-size: clamp(28px, 6vw, 34px);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+}
+
+.product__price {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.product__description {
+    color: var(--color-text-soft);
+    line-height: 1.65;
+}
+
+/* 7. Pagination */
 .pagination {
     display: flex;
     flex-wrap: wrap;
@@ -390,7 +455,7 @@ a:hover {
     font-weight: 700;
 }
 
-/* 7. Error pages */
+/* 8. Error pages */
 .error-panel {
     max-width: 588px;
     padding: 56px 40px;
