@@ -10,6 +10,7 @@ declare(strict_types=1);
  * replace the routing below with US-22 and US-23.
  */
 
+use App\Database\DatabaseUnavailableException;
 use App\Database\MissingConfigurationException;
 use App\Database\PdoFactory;
 
@@ -32,7 +33,7 @@ if ($path === '/health') {
     try {
         PdoFactory::fromEnvironment()->create()->query('SELECT 1');
         $database = 'up';
-    } catch (PDOException|MissingConfigurationException $exception) {
+    } catch (DatabaseUnavailableException|PDOException|MissingConfigurationException $exception) {
         // The cause goes to the logs (docker compose logs app), never to the client.
         error_log('Health check: database unavailable: ' . $exception->getMessage());
         $database = 'down';

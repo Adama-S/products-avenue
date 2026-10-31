@@ -58,22 +58,29 @@ final readonly class PdoFactory
     /**
      * Opens a new connection.
      *
-     * @throws \PDOException when the server cannot be reached or refuses the credentials
+     * @throws DatabaseUnavailableException when the server cannot be reached or refuses the
+     *                                      credentials (the visitor sees a 503 page)
      */
     public function create(): PDO
     {
-        $pdo = new PDO(
-            \sprintf('mysql:host=%s;dbname=%s;charset=utf8mb4', $this->host, $this->database),
-            $this->user,
-            $this->password,
-            [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                // Real prepared statements: values never travel inside the SQL text.
-                PDO::ATTR_EMULATE_PREPARES => false,
-            ],
-        );
-        $pdo->exec("SET time_zone = '+00:00'");
+        try {
+            $pdo = new PDO(
+                \sprintf('mysql:host=%s;dbname=%s;charset=utf8mb4', $this->host, $this->database),
+                $this->user,
+                $this->password,
+                [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    // Real prepared statements: values never travel inside the SQL text.
+                    PDO::ATTR_EMULATE_PREPARES => false,
+                    // A page must not hang on a database that does not answer: fail fast, show a 503.
+                    PDO::ATTR_TIMEOUT => 3,
+                ],
+            );
+            $pdo->exec("SET time_zone = '+00:00'");
+        } catch (\PDOException $exception) {
+            throw new DatabaseUnavailableException('Cannot connect to MySQL: ' . $exception->getMessage(), 0, $exception);
+        }
 
         return $pdo;
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Database;
 
+use App\Database\DatabaseUnavailableException;
 use App\Database\PdoFactory;
 use PDO;
 use PHPUnit\Framework\TestCase;
@@ -33,6 +34,15 @@ final class PdoFactoryTest extends TestCase
     public function test_prepared_statements_are_not_emulated(): void
     {
         self::assertFalse($this->pdo->getAttribute(PDO::ATTR_EMULATE_PREPARES));
+    }
+
+    public function test_an_unreachable_server_makes_the_database_unavailable(): void
+    {
+        $factory = new PdoFactory('unreachable-host.invalid', 'catalog_test', 'app', 'secret');
+
+        $this->expectException(DatabaseUnavailableException::class);
+
+        $factory->create();
     }
 
     private function fetchValue(string $sql): mixed
