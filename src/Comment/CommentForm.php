@@ -19,11 +19,17 @@ final readonly class CommentForm
         public array $errors = [],
     ) {}
 
+    /**
+     * The form pre-filled with a stored review (edit page).
+     */
     public static function fromComment(Comment $comment): self
     {
         return new self($comment->author, $comment->content);
     }
 
+    /**
+     * True when no field has an error.
+     */
     public function isValid(): bool
     {
         return $this->errors === [];

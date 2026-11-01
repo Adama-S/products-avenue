@@ -35,6 +35,9 @@ final readonly class Response
         return new self($this->statusCode, $this->body, $headers + $this->headers);
     }
 
+    /**
+     * Writes the status, the headers and the body: called once, by public/index.php.
+     */
     public function send(): void
     {
         http_response_code($this->statusCode);

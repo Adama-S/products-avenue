@@ -25,6 +25,9 @@ final readonly class Request
         private array $headers = [],
     ) {}
 
+    /**
+     * The current request, read from the PHP superglobals: the only place that reads them.
+     */
     public static function fromGlobals(): self
     {
         $uri = $_SERVER['REQUEST_URI'] ?? '/';
@@ -64,6 +67,9 @@ final readonly class Request
         return self::single($this->post, $name);
     }
 
+    /**
+     * A request header, by case-insensitive name; null when absent.
+     */
     public function header(string $name): ?string
     {
         return $this->headers[strtolower($name)] ?? null;

@@ -30,6 +30,14 @@ final readonly class Application
      */
     private const string CONTENT_SECURITY_POLICY = "default-src 'self'; img-src 'self' https://fakestoreapi.com; style-src 'self'; script-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'";
 
+    /** Sent once here, on every response, error pages included. */
+    private const array SECURITY_HEADERS = [
+        'Content-Security-Policy' => self::CONTENT_SECURITY_POLICY,
+        'Referrer-Policy' => 'strict-origin-when-cross-origin',
+        'X-Content-Type-Options' => 'nosniff',
+        'X-Frame-Options' => 'DENY',
+    ];
+
     private Router $router;
 
     public function __construct(
@@ -49,35 +57,45 @@ final readonly class Application
         $this->router->get('/health', static fn(): Response => $healthController->check());
     }
 
+    /**
+     * The response to a request: the page, or the error page chosen from the exception.
+     * Never throws: every failure becomes a page, with the security headers.
+     */
     public function handle(Request $request): Response
     {
         try {
             $response = $this->router->dispatch($request);
-        } catch (ProductNotFoundException) {
-            $response = $this->errorPage(404, 'Produit introuvable', "Ce produit n'existe pas ou n'est plus au catalogue.");
-        } catch (CommentNotFoundException) {
-            $response = $this->errorPage(404, 'Avis introuvable', "Cet avis n'existe pas ou a été supprimé.");
-        } catch (PageNotFoundException) {
-            $response = $this->errorPage(404, 'Page introuvable', "Cette page n'existe pas.");
-        } catch (InvalidCsrfTokenException) {
-            // Nothing was saved: the visitor reloads the page, which gives a fresh form and token.
-            $response = $this->errorPage(403, 'Formulaire expiré', 'Rechargez la page, puis envoyez à nouveau le formulaire.');
-        } catch (ProductApiUnavailableException|DatabaseUnavailableException $exception) {
-            // The details are in the logs, never on the page.
-            error_log('503: ' . $exception->getMessage());
-            $response = $this->errorPage(503, 'Le catalogue est momentanément indisponible', 'Merci de réessayer dans quelques instants.');
         } catch (\Throwable $exception) {
-            // Last resort for a bug: logged with its trace, a neutral page for the visitor.
-            error_log('500: ' . $exception);
-            $response = $this->errorPage(500, 'Une erreur est survenue', 'Merci de réessayer dans quelques instants.');
+            $response = $this->errorResponse($exception);
         }
 
-        return $response->withHeaders([
-            'Content-Security-Policy' => self::CONTENT_SECURITY_POLICY,
-            'Referrer-Policy' => 'strict-origin-when-cross-origin',
-            'X-Content-Type-Options' => 'nosniff',
-            'X-Frame-Options' => 'DENY',
-        ]);
+        return $response->withHeaders(self::SECURITY_HEADERS);
+    }
+
+    /**
+     * The only place where business exceptions are turned into pages.
+     */
+    private function errorResponse(\Throwable $exception): Response
+    {
+        return match (true) {
+            $exception instanceof ProductNotFoundException => $this->errorPage(404, 'Produit introuvable', "Ce produit n'existe pas ou n'est plus au catalogue."),
+            $exception instanceof CommentNotFoundException => $this->errorPage(404, 'Avis introuvable', "Cet avis n'existe pas ou a été supprimé."),
+            $exception instanceof PageNotFoundException => $this->errorPage(404, 'Page introuvable', "Cette page n'existe pas."),
+            // Nothing was saved: the visitor reloads the page, which gives a fresh form and token.
+            $exception instanceof InvalidCsrfTokenException => $this->errorPage(403, 'Formulaire expiré', 'Rechargez la page, puis envoyez à nouveau le formulaire.'),
+            // The details go to the logs, never to the page.
+            $exception instanceof ProductApiUnavailableException, $exception instanceof DatabaseUnavailableException
+                => $this->logged('503: ' . $exception->getMessage(), $this->errorPage(503, 'Le catalogue est momentanément indisponible', 'Merci de réessayer dans quelques instants.')),
+            // Last resort for a bug: logged with its trace, a neutral page for the visitor.
+            default => $this->logged('500: ' . $exception, $this->errorPage(500, 'Une erreur est survenue', 'Merci de réessayer dans quelques instants.')),
+        };
+    }
+
+    private function logged(string $message, Response $response): Response
+    {
+        error_log($message);
+
+        return $response;
     }
 
     /**

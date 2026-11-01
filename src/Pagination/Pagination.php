@@ -63,16 +63,25 @@ final readonly class Pagination
         return (int) $parameter;
     }
 
+    /**
+     * Number of items before the current page (SQL OFFSET, or the slice start).
+     */
     public function offset(): int
     {
         return ($this->currentPage - 1) * $this->perPage;
     }
 
+    /**
+     * False on the first page: no « Précédent » link there.
+     */
     public function hasPrevious(): bool
     {
         return $this->currentPage > 1;
     }
 
+    /**
+     * False on the last page: no « Suivant » link there.
+     */
     public function hasNext(): bool
     {
         return $this->currentPage < $this->pageCount;
@@ -86,6 +95,9 @@ final readonly class Pagination
         return $this->totalItems === 0 ? 0 : $this->offset() + 1;
     }
 
+    /**
+     * Position of the last item of the page in the whole list, 0 when empty.
+     */
     public function lastItemNumber(): int
     {
         return min($this->offset() + $this->perPage, $this->totalItems);

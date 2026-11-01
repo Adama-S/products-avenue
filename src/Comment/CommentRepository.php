@@ -51,6 +51,9 @@ final class CommentRepository
         return array_values(array_map($this->hydrate(...), $statement->fetchAll()));
     }
 
+    /**
+     * Total of reviews of a product, for its pagination; served by idx_comments_product_created.
+     */
     public function countByProduct(int $productId): int
     {
         $statement = $this->pdo()->prepare('SELECT COUNT(*) FROM comments WHERE product_external_id = ?');

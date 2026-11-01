@@ -19,6 +19,19 @@ final readonly class CurlHttpClient implements HttpClientInterface
     /** An explicit User-Agent: the API owner can identify and contact us instead of blocking us. */
     private const string USER_AGENT = 'ProductsAvenue/1.0 (+https://github.com/Adama-S/products-avenue)';
 
+    private const array OPTIONS = [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT_MS => self::CONNECT_TIMEOUT_MS,
+        CURLOPT_TIMEOUT_MS => self::TOTAL_TIMEOUT_MS,
+        CURLOPT_USERAGENT => self::USER_AGENT,
+        CURLOPT_HTTPHEADER => ['Accept: application/json'],
+        // Only web protocols: a misconfigured URL cannot read a local file (file://).
+        CURLOPT_PROTOCOLS_STR => 'https,http',
+    ];
+
+    /**
+     * Any HTTP status comes back as a response; only the absence of a response is an exception.
+     */
     public function get(string $url): HttpResponse
     {
         $handle = curl_init($url);
@@ -26,15 +39,7 @@ final readonly class CurlHttpClient implements HttpClientInterface
             throw new HttpTransportException('Cannot initialise cURL for ' . $url, 0.0);
         }
 
-        curl_setopt_array($handle, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT_MS => self::CONNECT_TIMEOUT_MS,
-            CURLOPT_TIMEOUT_MS => self::TOTAL_TIMEOUT_MS,
-            CURLOPT_USERAGENT => self::USER_AGENT,
-            CURLOPT_HTTPHEADER => ['Accept: application/json'],
-            // Only web protocols: a misconfigured URL cannot read a local file (file://).
-            CURLOPT_PROTOCOLS_STR => 'https,http',
-        ]);
+        curl_setopt_array($handle, self::OPTIONS);
 
         $body = curl_exec($handle);
         $durationMs = (float) curl_getinfo($handle, CURLINFO_TOTAL_TIME) * 1000;

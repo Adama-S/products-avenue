@@ -22,6 +22,9 @@ final readonly class FileCache implements CacheInterface
         private array $allowedClasses,
     ) {}
 
+    /**
+     * Fresh value only; null when missing, expired or unreadable.
+     */
     public function get(string $key): mixed
     {
         $entry = $this->read($key);
@@ -29,6 +32,9 @@ final readonly class FileCache implements CacheInterface
         return $entry !== null && $this->now() < $entry['expiresAt'] ? $entry['value'] : null;
     }
 
+    /**
+     * Even expired, as long as it expired less than $maxAgeSeconds ago.
+     */
     public function getStale(string $key, int $maxAgeSeconds): mixed
     {
         $entry = $this->read($key);
@@ -36,6 +42,9 @@ final readonly class FileCache implements CacheInterface
         return $entry !== null && $this->now() < $entry['expiresAt'] + $maxAgeSeconds ? $entry['value'] : null;
     }
 
+    /**
+     * Atomic write; a failure is logged, never thrown (the cache is an optimisation).
+     */
     public function set(string $key, mixed $value, int $ttlSeconds): void
     {
         $path = $this->path($key);

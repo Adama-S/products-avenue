@@ -16,6 +16,9 @@ enum CommentNotice: string
     case Updated = 'updated';
     case Deleted = 'deleted';
 
+    /**
+     * The confirmation shown on the product page, in French.
+     */
     public function message(): string
     {
         return match ($this) {

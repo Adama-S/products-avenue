@@ -39,6 +39,9 @@ final readonly class HttpProductProvider implements ProductProviderInterface
         $this->baseUrl = rtrim($baseUrl, '/');
     }
 
+    /**
+     * GET /products: the whole catalogue (FakeStore has no pagination).
+     */
     public function getAll(): array
     {
         $url = $this->baseUrl . '/products';
@@ -52,21 +55,12 @@ final readonly class HttpProductProvider implements ProductProviderInterface
             $this->fail($url, $response, 'product list is not a JSON array');
         }
 
-        $products = [];
-        foreach ($items as $position => $item) {
-            $product = $this->toProduct($item);
-            if ($product === null) {
-                // One broken product must not take the whole catalogue down.
-                $this->log($url, $response->statusCode, $response->durationMs, 'invalid product skipped at position ' . $position);
-
-                continue;
-            }
-            $products[] = $product;
-        }
-
-        return $products;
+        return $this->toProducts($items, $url, $response);
     }
 
+    /**
+     * GET /products/{id}.
+     */
     public function getById(int $id): Product
     {
         // Never put an unchecked id in the API URL.
@@ -136,6 +130,30 @@ final readonly class HttpProductProvider implements ProductProviderInterface
         } catch (\JsonException $exception) {
             $this->fail($url, $response, 'invalid JSON: ' . $exception->getMessage());
         }
+    }
+
+    /**
+     * Maps the list; an invalid product is skipped and logged: one broken product must not
+     * take the whole catalogue down.
+     *
+     * @param list<mixed> $items
+     *
+     * @return list<Product>
+     */
+    private function toProducts(array $items, string $url, HttpResponse $response): array
+    {
+        $products = [];
+        foreach ($items as $position => $item) {
+            $product = $this->toProduct($item);
+            if ($product === null) {
+                $this->log($url, $response->statusCode, $response->durationMs, 'invalid product skipped at position ' . $position);
+
+                continue;
+            }
+            $products[] = $product;
+        }
+
+        return $products;
     }
 
     /**

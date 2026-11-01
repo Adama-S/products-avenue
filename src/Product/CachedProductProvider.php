@@ -30,6 +30,9 @@ final readonly class CachedProductProvider implements ProductProviderInterface
         private int $ttlSeconds,
     ) {}
 
+    /**
+     * The list from the cache while fresh; from the API otherwise, or a stale copy if the API is down.
+     */
     public function getAll(): array
     {
         $cached = $this->cache->get(self::LIST_KEY);
@@ -41,12 +44,8 @@ final readonly class CachedProductProvider implements ProductProviderInterface
             $products = $this->provider->getAll();
         } catch (ProductApiUnavailableException $exception) {
             $stale = $this->cache->getStale(self::LIST_KEY, self::STALE_MAX_AGE_SECONDS);
-            if (!self::isProductList($stale)) {
-                throw $exception;
-            }
-            $this->warnStale(self::LIST_KEY, $exception);
 
-            return $stale;
+            return self::isProductList($stale) ? $this->servedStale(self::LIST_KEY, $stale, $exception) : throw $exception;
         }
 
         $this->cache->set(self::LIST_KEY, $products, $this->ttlSeconds);
@@ -54,6 +53,10 @@ final readonly class CachedProductProvider implements ProductProviderInterface
         return $products;
     }
 
+    /**
+     * The product from the cache while fresh; from the API otherwise, or a stale copy if the API is down.
+     * A product not found is never cached nor served from an old copy.
+     */
     public function getById(int $id): Product
     {
         // Not a product id: let the provider refuse it, nothing to cache.
@@ -72,12 +75,8 @@ final readonly class CachedProductProvider implements ProductProviderInterface
             $product = $this->provider->getById($id);
         } catch (ProductApiUnavailableException $exception) {
             $stale = $this->cache->getStale($key, self::STALE_MAX_AGE_SECONDS);
-            if (!$stale instanceof Product) {
-                throw $exception;
-            }
-            $this->warnStale($key, $exception);
 
-            return $stale;
+            return $stale instanceof Product ? $this->servedStale($key, $stale, $exception) : throw $exception;
         }
 
         $this->cache->set($key, $product, $this->ttlSeconds);
@@ -99,8 +98,19 @@ final readonly class CachedProductProvider implements ProductProviderInterface
         return array_all($value, static fn(mixed $product): bool => $product instanceof Product);
     }
 
-    private function warnStale(string $key, ProductApiUnavailableException $exception): void
+    /**
+     * Logs the outage, then hands the stale copy back.
+     *
+     * @template T
+     *
+     * @param T $copy
+     *
+     * @return T
+     */
+    private function servedStale(string $key, mixed $copy, ProductApiUnavailableException $exception): mixed
     {
         error_log(\sprintf('Warning: products API unavailable, serving stale copy of "%s" (%s)', $key, $exception->getMessage()));
+
+        return $copy;
     }
 }
